@@ -5,7 +5,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
-from explore import prepare_data, create_map_plotly, plot_time_series
+from explore import prepare_data, create_map_plotly, plot_time_series,plot_average_monthly
 
 import json
 from textwrap import dedent as d
@@ -39,7 +39,7 @@ Haz click en una de las estaciones para seleccionar una.
 df, est, provincias = prepare_data()
 
 # Initialize map
-fig_map = create_map_plotly(df, est, provincias)
+fig_map = create_map_plotly(est, provincias)
 
 # Launch app
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -53,7 +53,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(children=[
 
-    html.Label('Seleccione provincia'),
+    #html.Label('Seleccione provincia'),
     # dcc.Dropdown(
     #     options=[
     #         {'label': 'Valladolid', 'value': 'Valladolid'},
@@ -70,6 +70,11 @@ app.layout = html.Div(children=[
     #     multi=True
     # ),
 
+    html.Div([
+            dcc.Markdown(children=markdown_text)
+        ]),
+
+    html.Label('Seleccione componente que desee analizar'),
     dcc.Dropdown(
             id='drop-component',
             options=[
@@ -93,10 +98,6 @@ app.layout = html.Div(children=[
 
 
     html.Div([
-        dcc.Markdown(children=markdown_text)
-    ]),
-
-    html.Div([
         dcc.Markdown(d("""
                 **Click Data**
 
@@ -109,11 +110,17 @@ app.layout = html.Div(children=[
         id='time-series1',
         #figure = fig_time_series,
         style={'height': 400}
-    )#,
+    ),
+
+    dcc.Graph(
+        id='monthly-plot',
+        #figure = fig_time_series,
+        style={'height': 400}
+    )
 
     #generate_table(df)
 
-], style={'columnCount': 1})
+], style={'columnCount': 2})
 
 
 #===== CALLBACK =========
@@ -144,9 +151,23 @@ def update_figure(clickData,value):
 
 
 
+@app.callback(
+    dash.dependencies.Output('monthly-plot', 'figure'),
+    [dash.dependencies.Input('cyl-map', 'clickData'),
+     dash.dependencies.Input('drop-component', 'value')])
+def update_figure(clickData,value):
 
-# Ahora, dependiendo de click-data hacer unas graficas filtradas por Estacion
-# Hacerlas primero en explore.py y despues usar aqui la funcion
+    # Get the estacion from clickData
+    sel_estacion = clickData['points'][0]['text']
+
+    # Produce figure
+    fig = plot_average_monthly(df, sel_estacion=str(sel_estacion), sel_comp=str(value))
+
+    # END
+    return fig
+
+
+
 
 #===== END =========
 #===================

@@ -8,15 +8,31 @@ import plotly.graph_objs as go
 
 
 
-def prepare_data():
+def prepare_data(file_path = 'data/Calidad_del_aire_-_datos_hist_ricos_diarios.csv',
+                 provincias_path = 'data/provincias.json'):
 
     # Download data from portal
-    # Clean and prepare into a pandas dataFrame
-    df = pd.read_csv('data/Calidad_del_aire_-_datos_hist_ricos_diarios.csv',
-                     sep=";",
-                     low_memory=False)
-    df.columns.values[9] = 'Estacion'
-    df.columns.values[10] = 'Posicion'
+    # TODO
+
+    # # Clean and prepare into a pandas dataFrame
+    # dtypes = {'Hora':str,
+    #           'NO (ug/m3)':float,
+    #           'NO2 (ug/m3)':float,
+    #           'CO (mg/m3)': float,
+    # 'O3 (ug/m3)':float,
+    # 'PM10 (ug/m3)':float,
+    # 'PM25 (ug/m3)':float,
+    # 'SO2 (ug/m3)':float,
+    # 'Provincia':str,
+    # 'Estación':str,
+    # 'Posición de la estación':str}
+
+    df = pd.read_csv(file_path, sep=";",parse_dates = ['Fecha'] ,low_memory=False )
+
+    df.columns.values[df.columns.values == 'Estación'] = 'Estacion'
+    df.columns.values[df.columns.values == 'Posición'] = 'Posicion'
+    #df.columns.values[df.columns.values == 'Posición de la estación'] = 'Posicion'
+    #df.columns.values[df.columns.values == 'Hora'] = 'Fecha'
 
     # Transform posicion in array of lat and lon
     pattern_all = '\((\d+\.{1}\d+),\s(-?\d+\.{1}\d+)\)'
@@ -30,7 +46,7 @@ def prepare_data():
     est = df.groupby('Estacion').agg(['count', 'min', 'max', 'std', 'mean'])
 
     # Load boundaries of provinces
-    provincias = geopandas.read_file('data/provincias.json')
+    provincias = geopandas.read_file(provincias_path)
     provincias = provincias.query(
         "name in ('Valladolid','Zamora','Salamanca','León','Soria','Palencia','Ávila','Segovia','Burgos')")
 
@@ -38,7 +54,7 @@ def prepare_data():
 
 
 
-def create_map_plotly(df, est, provincias):
+def create_map_plotly( est, provincias):
     """
     Creates a plotly map of CyL
     TODO: filter by Estacion and return plotly map
@@ -105,6 +121,9 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
 
     # TODO: Check that values are actually selected
 
+    # Order by time
+    df_sel = df_sel.sort_values(by='Fecha')
+
     # Make time series plot
     data = [go.Scatter(
         name=sel_comp,
@@ -126,9 +145,9 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
     return fig
 
 
-def plot_average_daily(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)'):
+def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)'):
     """
-    Return a time series figure with average values per hour with error bars
+    Return a time series figure with average values per month with error bars
     Inspired from here: https://plot.ly/python/continuous-error-bars/
     """
 
@@ -138,16 +157,19 @@ def plot_average_daily(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)
     # Select column
     df_sel = df_sel[['Fecha',sel_comp]]
 
-    # TODO: Check that values are actually selected
+    # Aggregate by week day
+    df_sel = df_sel.sort_values(by='Fecha')
+    df_sel['weekday'] = pd.DatetimeIndex(df_sel.Fecha).month
+    df_agg = df_sel.groupby('weekday').agg(['std', 'mean'])[sel_comp] #**** TODO: If nothing is selected raises error. Should plot something white (or, text instead)
 
-    # aggregate by hour. Calculate mean and sd
-
+    # catch ValueError: return empty?
 
     # Create figure
+    meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
     upper_bound = go.Scatter(
-        name='Upper Bound',
-        x=df_sel['Time'],
-        y=df_sel['10 Min Sampled Avg'] + df_sel['10 Min Std Dev'],
+        name='',
+        x=meses,#df_agg.index.values,
+        y=df_agg['mean'] + df_agg['std'],
         mode='lines',
         marker=dict(color="#444"),
         line=dict(width=0),
@@ -155,18 +177,18 @@ def plot_average_daily(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)
         fill='tonexty')
 
     trace = go.Scatter(
-        name='Measurement',
-        x=df['Time'],
-        y=df['10 Min Sampled Avg'],
+        name='Media',
+        x=meses,#df_agg.index.values,
+        y=df_agg['mean'],
         mode='lines',
         line=dict(color='rgb(31, 119, 180)'),
         fillcolor='rgba(68, 68, 68, 0.3)',
         fill='tonexty')
 
     lower_bound = go.Scatter(
-        name='Lower Bound',
-        x=df_sel['Time'],
-        y=df_sel['10 Min Sampled Avg'] - df_sel['10 Min Std Dev'],
+        name='',
+        x=meses,#,df_agg.index.values,
+        y=df_agg['mean'] - df_agg['std'],
         marker=dict(color="#444"),
         line=dict(width=0),
         mode='lines')
@@ -176,11 +198,12 @@ def plot_average_daily(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)
     data = [lower_bound, trace, upper_bound]
 
     layout = go.Layout(
-        yaxis=dict(title='Wind speed (m/s)'),
-        title='Continuous, variable value error bars.<br>Notice the hover text!',
+        yaxis=dict(title='Month'),
+        title='Concentracion media de ' + str(sel_comp) + ' en ' + str(sel_estacion),
         showlegend=False)
 
     fig = go.Figure(data=data, layout=layout)
+    #plotly.offline.plot(fig)
 
     return fig
 

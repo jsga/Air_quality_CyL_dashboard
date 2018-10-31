@@ -108,3 +108,6 @@ venv.bak/
 .idea/workspace.xml
 .DS_Store
 .idea/Datos_provincias.iml
+.idea/vcs.xml
+data/Calidad_del_aire_-_datos_hist_ricos_por_horas.csv
+tests.py
