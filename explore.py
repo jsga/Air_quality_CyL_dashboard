@@ -49,6 +49,9 @@ def prepare_data(file_path = 'data/Calidad_del_aire_-_datos_hist_ricos_diarios.c
     provincias = geopandas.read_file(provincias_path)
     provincias = provincias.query(
         "name in ('Valladolid','Zamora','Salamanca','León','Soria','Palencia','Ávila','Segovia','Burgos')")
+    # Write back
+   # with open('data/provincias_cyl.geojson', 'w') as f:
+   #     f.write(provincias.to_json())
 
     return df, est, provincias
 
@@ -69,11 +72,12 @@ def create_map_plotly( est, provincias):
         go.Scattermapbox(
             lat=est['lat']['mean'],
             lon=est['lon']['mean'],
+            text= est.index.values,
+            hoverinfo='text',
             mode='markers',
             marker=dict(
                 size=9
-            ),
-            text=est.index.values,
+            )
         )
     ]
 
@@ -82,30 +86,84 @@ def create_map_plotly( est, provincias):
         hovermode='closest',
         mapbox=dict(
             accesstoken=mapbox_access_token,
-            # layers=[ # TODO: Give a color to Castilla y leon
-            #     dict(
-            #         sourcetype='geojson',
-            #         source=provincias.to_json(),
-            #         type='fill',
-            #         color='rgba(40,0,113,0.8)'
-            #     )
-            # ],
+            layers=[ # TODO: Give a color to Castilla y leon. Not working!
+                dict(
+                    sourcetype='geojson',
+                    source='https://gist.githubusercontent.com/jsga/bde68149f50fb9a9cd399f3da7494260/raw/4cc48bf68f9f0324811c74d2ab4565d0bde1e643/castilla_y_leon.geojson',
+                    type='fill',
+                    color='rgba(255,204,204,0.2)'
+                )
+            ],
             bearing=0,
             center=dict(
                 lat=41.6525246,
                 lon=-4.7308742
             ),
             pitch=0,
-            zoom=7#,
+            zoom=7,
             #style='dark'
-        ),
+        )
+        #dragmode = 'lasso'
     )
+
 
     fig = dict(data=data, layout=layout)
     #plotly.offline.plot(fig)
 
     return fig
 
+
+
+
+def empty_plot(label_annotation):
+    '''
+    Returns an empty plot with a text in the center of it
+    This is used when no data is available
+    '''
+
+    trace1 = go.Scatter(
+        x=[],
+        y=[]
+    )
+
+    data = [trace1]
+
+    layout = go.Layout(
+        showlegend=False,
+        xaxis=dict(
+            autorange=True,
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            ticks='',
+            showticklabels=False
+        ),
+        yaxis=dict(
+            autorange=True,
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            ticks='',
+            showticklabels=False
+        ),
+        annotations=[
+            dict(
+                x=0,
+                y=0,
+                xref='x',
+                yref='y',
+                text=label_annotation,
+                showarrow=True,
+                arrowhead=7,
+                ax=0,
+                ay=0
+            )
+        ]
+    )
+
+    fig = go.Figure(data=data, layout=layout)
+    # END
+    return fig
 
 
 def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)'):
@@ -119,7 +177,9 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
     # Select column
     df_sel = df_sel[['Fecha',sel_comp]]
 
-    # TODO: Check that values are actually selected
+    # Check that values are actually selected or all are nan. return empty plot
+    if df_sel.shape[0]==0 or df_sel.shape[1]==0 or ( df_sel.shape[0] - pd.isna(df_sel.iloc[:,1]).sum()) == 0:
+        return empty_plot('No hay datos disponibles de ' + str(sel_comp) + '\npara la estacion de ' + str(sel_estacion) + '.\nPruebe con otra selección.')
 
     # Order by time
     df_sel = df_sel.sort_values(by='Fecha')
@@ -136,7 +196,7 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
 
     layout = go.Layout(
         yaxis=dict(title=sel_comp),
-        title='Evolution of ' + str(sel_comp) + ' over time',
+        title='Evolucion de ' + str(sel_comp) + ' a lo largo del tiempo',
         showlegend=False)
 
     fig = go.Figure(data=data, layout=layout)
@@ -160,9 +220,13 @@ def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m
     # Aggregate by week day
     df_sel = df_sel.sort_values(by='Fecha')
     df_sel['weekday'] = pd.DatetimeIndex(df_sel.Fecha).month
-    df_agg = df_sel.groupby('weekday').agg(['std', 'mean'])[sel_comp] #**** TODO: If nothing is selected raises error. Should plot something white (or, text instead)
 
-    # catch ValueError: return empty?
+    # Aggregate by week day
+    try:
+        df_agg = df_sel.groupby('weekday').agg(['std', 'mean'])[sel_comp]
+    except ValueError:
+        return empty_plot('No hay datos disponibles de ' + str(sel_comp) + '\npara la estacion de ' + str(
+            sel_estacion) + '.\nPruebe con otra selección.')
 
     # Create figure
     meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -206,6 +270,47 @@ def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m
     #plotly.offline.plot(fig)
 
     return fig
+
+
+
+
+
+def show_table_avg(est,sel_estacion = 'VALLADOLID SUR'):
+    """
+    Returns a plotly table with info from the selected estacion
+    """
+
+    # Select estacion
+    est_sel = est[est.index == sel_estacion]
+
+    # Re-arrange the table
+    est_sel.iloc[0,]
+    pd.melt( est_sel[0,],id_vars='',value_vars=['count','mean','std','min','max'])
+
+    header = ['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'PM10 (ug/m3)', 'PM25 (ug/m3)']
+
+    pd.melt(est_sel.iloc[0,],id_vars = 'CO (mg/m3)', value_vars=header)
+
+    dd = [est_sel['CO (mg/m3)'],
+        est_sel['NO (ug/m3)'],
+        est_sel['NO2 (ug/m3)'],
+        #est_sel['O3 (ug/m3)']
+        est_sel['PM10 (ug/m3)'],
+        est_sel['PM25 (ug/m3)']]#,
+        #est_sel['SO2 (ug/m3)']
+
+
+    # Create table
+    trace = go.Table(
+        header=dict(values=est_sel.iloc[0,].T.index,
+                    fill=dict(color='#C2D4FF'),
+                    align=['left'] * 5),
+        cells=dict(values = est_sel.iloc[0,].T,
+                   fill=dict(color='#F5F8FF'),
+                   align=['left'] * 5))
+
+    data = [trace]
+    plotly.offline.plot(data)
 
 
 

@@ -5,7 +5,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
-from explore import prepare_data, create_map_plotly, plot_time_series,plot_average_monthly
+from explore import prepare_data, create_map_plotly, empty_plot, plot_time_series,plot_average_monthly
 
 import json
 from textwrap import dedent as d
@@ -31,7 +31,7 @@ def generate_table(dataframe, max_rows=10):
 markdown_text = '''
 ### Calidad del aire en Castilla y Leon
 
-Haz click en una de las estaciones para seleccionar una.
+Seleccione una estacion meteorologica en el mapa. Después, seleccione un tipo de contaminante que desee analizar.
 
 '''
 
@@ -42,7 +42,7 @@ df, est, provincias = prepare_data()
 fig_map = create_map_plotly(est, provincias)
 
 # Launch app
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+external_stylesheets = ['https://codepen.io/plotly/pen/EQZeaW.css']#['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
@@ -53,26 +53,17 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(children=[
 
-    #html.Label('Seleccione provincia'),
-    # dcc.Dropdown(
-    #     options=[
-    #         {'label': 'Valladolid', 'value': 'Valladolid'},
-    #         {'label': 'Zamora', 'value': 'Zamora'},
-    #         {'label': 'Salamanca', 'value': 'Salamanca'},
-    #         {'label': 'León', 'value': 'León'},
-    #         {'label': 'Soria', 'value': 'Soria'},
-    #         {'label': 'Palencia', 'value': 'Palencia'},
-    #         {'label': 'Ávila', 'value': 'Ávila'},
-    #         {'label': 'Segovia', 'value': 'Segovia'},
-    #         {'label': 'Burgos', 'value': 'Burgos'},
-    #     ],
-    #     value=['Valladolid','Zamora','Salamanca','León','Soria','Palencia','Ávila','Segovia','Burgos'],
-    #     multi=True
-    # ),
-
     html.Div([
             dcc.Markdown(children=markdown_text)
         ]),
+
+    html.Div(id='selected-estacion'),
+
+    dcc.Graph(
+        id='cyl-map',
+        figure = fig_map,
+        style={'height': 700}
+    ),
 
     html.Label('Seleccione componente que desee analizar'),
     dcc.Dropdown(
@@ -86,29 +77,12 @@ app.layout = html.Div(children=[
                 {'label': 'PM25 (ug/m3)', 'value': 'PM25 (ug/m3)'},
                 {'label': 'SO2 (ug/m3)', 'value': 'SO2 (ug/m3)'},
             ],
-            value=['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'O3 (ug/m3)','PM10 (ug/m3)', 'PM25 (ug/m3)', 'SO2 (ug/m3)'],
+            #value=['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'O3 (ug/m3)','PM10 (ug/m3)', 'PM25 (ug/m3)', 'SO2 (ug/m3)'],
             multi=False
         ),
 
     dcc.Graph(
-        id='cyl-map',
-        figure = fig_map,
-        style={'height': 700}
-    ),
-
-
-    html.Div([
-        dcc.Markdown(d("""
-                **Click Data**
-
-                Click on points in the graph.
-            """)),
-        html.Pre(id='click-data'),
-    ], className='three columns'),
-
-    dcc.Graph(
         id='time-series1',
-        #figure = fig_time_series,
         style={'height': 400}
     ),
 
@@ -116,21 +90,64 @@ app.layout = html.Div(children=[
         id='monthly-plot',
         #figure = fig_time_series,
         style={'height': 400}
-    )
+    ),
 
     #generate_table(df)
+    # Hidden div inside the app that stores the intermediate value
+    html.Div(id='df_sel', style={'display': 'none'})
 
-], style={'columnCount': 2})
+], style={'columnCount': 1})
 
 
 #===== CALLBACK =========
 #========================
 
+# @app.callback(
+#     Output('click-data', 'children'),
+#     [Input('cyl-map', 'clickData')])
+# def display_click_data(clickData):
+#     return json.dumps(clickData, indent=2)
+
+
+
+# retrieve selected estacion and return with text
 @app.callback(
-    Output('click-data', 'children'),
-    [Input('cyl-map', 'clickData')])
-def display_click_data(clickData):
-    return json.dumps(clickData, indent=2)
+    Output(component_id='selected-estacion', component_property='children'),
+    [dash.dependencies.Input('cyl-map', 'clickData')]
+)
+def update_selected_estacion(clickData):
+    print(clickData)
+    sel_estacion = clickData['points'][0]['text']
+    return 'Estacion seleccionada: ' + str(sel_estacion)
+
+
+# Do the filtering inside a callback, more optimal than at each one.
+# Problem: THe functons also need to be changed. Leave it for now.
+# @app.callback(
+#     Output('df_sel', 'children'),
+#     [dash.dependencies.Input('cyl-map', 'clickData'),
+#      dash.dependencies.Input('drop-component', 'value')]
+# )
+# def filter_df_estacion(clickData,value):
+#
+#     # If nothing is selected
+#     if clickData is None:
+#         return None
+#
+#     # Filter by selected estacion
+#     sel_estacion = clickData['points'][0]['text']
+#     df_sel = df[df['Estacion'] == sel_estacion]
+#
+#     # Select column by component
+#     df_sel = df_sel[['Fecha', value]]
+#
+#     # Aggregate by week day
+#     df_sel = df_sel.sort_values(by='Fecha')
+#
+#     # END
+#     return df_sel
+
+
 
 
 @app.callback(
@@ -138,6 +155,10 @@ def display_click_data(clickData):
     [dash.dependencies.Input('cyl-map', 'clickData'),
      dash.dependencies.Input('drop-component', 'value')])
 def update_figure(clickData,value):
+
+    # If None clicked
+    if clickData is None:
+        return empty_plot('Seleccione una estación en el mapa')
 
     # Get the estacion from clickData
     sel_estacion = clickData['points'][0]['text']
@@ -156,6 +177,10 @@ def update_figure(clickData,value):
     [dash.dependencies.Input('cyl-map', 'clickData'),
      dash.dependencies.Input('drop-component', 'value')])
 def update_figure(clickData,value):
+
+    # If None clicked
+    if clickData is None:
+        return empty_plot('Seleccione una estación en el mapa')
 
     # Get the estacion from clickData
     sel_estacion = clickData['points'][0]['text']
