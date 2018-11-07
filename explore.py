@@ -14,19 +14,6 @@ def prepare_data(file_path = 'data/Calidad_del_aire_-_datos_hist_ricos_diarios.c
     # Download data from portal
     # TODO
 
-    # # Clean and prepare into a pandas dataFrame
-    # dtypes = {'Hora':str,
-    #           'NO (ug/m3)':float,
-    #           'NO2 (ug/m3)':float,
-    #           'CO (mg/m3)': float,
-    # 'O3 (ug/m3)':float,
-    # 'PM10 (ug/m3)':float,
-    # 'PM25 (ug/m3)':float,
-    # 'SO2 (ug/m3)':float,
-    # 'Provincia':str,
-    # 'Estación':str,
-    # 'Posición de la estación':str}
-
     df = pd.read_csv(file_path, sep=";",parse_dates = ['Fecha'] ,low_memory=False )
 
     df.columns.values[df.columns.values == 'Estación'] = 'Estacion'
@@ -49,9 +36,6 @@ def prepare_data(file_path = 'data/Calidad_del_aire_-_datos_hist_ricos_diarios.c
     provincias = geopandas.read_file(provincias_path)
     provincias = provincias.query(
         "name in ('Valladolid','Zamora','Salamanca','León','Soria','Palencia','Ávila','Segovia','Burgos')")
-    # Write back
-   # with open('data/provincias_cyl.geojson', 'w') as f:
-   #     f.write(provincias.to_json())
 
     return df, est, provincias
 
@@ -86,7 +70,7 @@ def create_map_plotly( est, provincias):
         hovermode='closest',
         mapbox=dict(
             accesstoken=mapbox_access_token,
-            layers=[ # TODO: Give a color to Castilla y leon. Not working!
+            layers=[
                 dict(
                     sourcetype='geojson',
                     source='https://gist.githubusercontent.com/jsga/bde68149f50fb9a9cd399f3da7494260/raw/4cc48bf68f9f0324811c74d2ab4565d0bde1e643/castilla_y_leon.geojson',
@@ -100,7 +84,7 @@ def create_map_plotly( est, provincias):
                 lon=-4.7308742
             ),
             pitch=0,
-            zoom=7,
+            zoom=6,
             #style='dark'
         )
         #dragmode = 'lasso'
