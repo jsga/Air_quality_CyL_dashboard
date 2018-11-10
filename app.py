@@ -1,11 +1,13 @@
 import pandas as pd
+import numpy as np
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
-from explore import prepare_data, create_map_plotly, empty_plot, plot_time_series, plot_average_monthly
+from explore import prepare_data, create_map_plotly, empty_plot, plot_time_series, plot_average_monthly, \
+    table_number_dataopints
 
 import json
 from textwrap import dedent as d
@@ -36,7 +38,6 @@ fig_map = create_map_plotly(est, provincias)
 external_stylesheets = ['https://codepen.io/plotly/pen/EQZeaW.css']  # ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-
 # ===== LAYOUT ===========
 # ========================
 
@@ -46,15 +47,15 @@ app.layout = html.Div([
     # Header
     html.Div([
 
-        html.Div([
-            html.Img(
-                src='https://www.coal.es/wp-content/uploads/2018/08/jcyl.jpg'
-                , height='80', width='130')
-        ], className='two column'),
+        # html.Div([
+        #     html.Img(
+        #         src='https://www.coal.es/wp-content/uploads/2018/08/jcyl.jpg',
+        #         height='80', width='135')
+        # ], className='two columns'),
 
         html.Div([
             html.H1(children='Calidad del aire en Castilla y León')
-        ],className='nine columns')
+        ], className='nine columns')
     ], className='row'),
 
     # Main
@@ -89,11 +90,18 @@ app.layout = html.Div([
                 # Estacion seleccionada...
                 html.Div(id='selected-estacion'),
 
-            ], className = 'six columns'),
+            ], className='six columns'),
 
         # Right column
         html.Div(
             [
+                html.H2(children='Numero de datos disponibles en la estacion'),
+
+                dcc.Graph(
+                    id='table-datapoints',
+                    style={'height': 400}
+                ),
+
                 dcc.Graph(
                     id='time-series1',
                     style={'height': 400}
@@ -109,8 +117,8 @@ app.layout = html.Div([
                 # Hidden div inside the app that stores the intermediate value
                 html.Div(id='df_sel', style={'display': 'none'})
 
-            ], className = 'six columns')
-    ], className = 'row')
+            ], className='six columns')
+    ], className='row')
 
 ])
 
@@ -126,6 +134,10 @@ app.layout = html.Div([
 )
 def update_selected_estacion(clickData):
     print(clickData)
+    # If nothing is selected
+    if clickData is None:
+        return None
+
     sel_estacion = clickData['points'][0]['text']
     return 'Estacion seleccionada: ' + str(sel_estacion)
 
@@ -161,10 +173,10 @@ def update_selected_estacion(clickData):
     dash.dependencies.Output('time-series1', 'figure'),
     [dash.dependencies.Input('cyl-map', 'clickData'),
      dash.dependencies.Input('drop-component', 'value')])
-def update_figure(clickData, value):
+def update_figure_ts1(clickData, value):
     # If None clicked
     if clickData is None:
-        return empty_plot('Seleccione una estación en el mapa')
+        return empty_plot('Seleccione una estación en el mapa y un componente')
 
     # Get the estacion from clickData
     sel_estacion = clickData['points'][0]['text']
@@ -181,10 +193,10 @@ def update_figure(clickData, value):
     dash.dependencies.Output('monthly-plot', 'figure'),
     [dash.dependencies.Input('cyl-map', 'clickData'),
      dash.dependencies.Input('drop-component', 'value')])
-def update_figure(clickData, value):
+def update_figure_mp(clickData, value):
     # If None clicked
     if clickData is None:
-        return empty_plot('Seleccione una estación en el mapa')
+        return empty_plot('Seleccione una estación en el mapa y un componente')
 
     # Get the estacion from clickData
     sel_estacion = clickData['points'][0]['text']
@@ -194,6 +206,23 @@ def update_figure(clickData, value):
 
     # END
     return fig
+
+
+# Show number of datapoints when hover
+@app.callback(Output('table-datapoints', 'figure'),
+              [Input('cyl-map', 'hoverData')])
+def update_table(hoverData):
+    print(hoverData)
+    if hoverData is None:
+        return empty_plot('Seleccione una estación en el mapa y un componente')
+
+    # Get the estacion from clickData
+    sel_estacion = hoverData['points'][0]['text']
+    print('estacion selected by hover: ' + str(sel_estacion))
+
+    tab = table_number_dataopints(df, sel_estacion)
+
+    return tab
 
 
 # ===== END =========

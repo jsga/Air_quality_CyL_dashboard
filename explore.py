@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import folium
 import geopandas
 
@@ -187,6 +188,45 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
     #plotly.offline.plot(fig)
 
     return fig
+
+
+def table_number_dataopints(df,sel_estacion = 'VALLADOLID SUR'):
+
+
+    # Filter by selected estacion
+    df_sel = df[df['Estacion'] == sel_estacion]
+
+    # Count
+    col_names = ['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'PM10 (ug/m3)', 'PM25 (ug/m3)']
+    df_summary = df_sel[col_names].describe()
+
+    # concat tyhe row names, i.e. col_names above
+    aux2 = np.c_[col_names ,np.round(df_summary.T,2)]
+
+
+    # CReate table
+    header =  np.insert(df_summary.index.values,0,' ')
+    sc = 80
+    col_w = [130, 100] + [sc for i in range(0,5)]
+    trace = go.Table(
+        columnwidth = col_w,
+        header=dict(values= header ,
+                    line=dict(color='#7D7F80'),
+                    fill=dict(color='#a1c3d1'),
+                    align=['left'] * len(header)),
+        cells=dict(values=aux2.T,
+                   line=dict(color='#7D7F80'),
+                   fill=dict(color='#EDFAFF'),
+                   align=['left'] * len(header),
+                   height = 40))
+
+    layout = dict(width=sum(col_w), height=700)
+    data = [trace]
+    fig = dict(data=data, layout=layout)
+    #plotly.offline.plot(fig)
+
+    return fig
+
 
 
 def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)'):
