@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import folium
 import geopandas
 
 import plotly
@@ -191,36 +190,42 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
 
 
 def table_number_dataopints(df,sel_estacion = 'VALLADOLID SUR'):
+    """
+    Creates a plotly table with summary information from the selected estacion
+    If sel_estacion is None, then an empty table is generated
+    """
 
-
-    # Filter by selected estacion
-    df_sel = df[df['Estacion'] == sel_estacion]
-
-    # Count
     col_names = ['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'PM10 (ug/m3)', 'PM25 (ug/m3)']
-    df_summary = df_sel[col_names].describe()
+    header = [ 'count', 'mean', 'std', 'min', '25%', '50%', '75%', 'max']
 
-    # concat tyhe row names, i.e. col_names above
-    aux2 = np.c_[col_names ,np.round(df_summary.T,2)]
+    if sel_estacion is not None:
+        # Filter by selected estacion
+        df_sel = df[df['Estacion'] == sel_estacion]
+        # Count
+        df_summary = df_sel[col_names].describe()
+    else:
+        # Crete empty table
+        df_summary = pd.DataFrame('', index=header, columns=col_names)
 
+    # concat the row names, i.e. col_names above
+    aux2 = np.c_[col_names, np.round(df_summary.T, 2)]
 
-    # CReate table
-    header =  np.insert(df_summary.index.values,0,' ')
+    # Create figure
     sc = 80
-    col_w = [130, 100] + [sc for i in range(0,5)]
+    col_w = [130, 100] + [sc for i in range(0,6)]
     trace = go.Table(
         columnwidth = col_w,
-        header=dict(values= header ,
+        header=dict(values= [''] + header ,
                     line=dict(color='#7D7F80'),
                     fill=dict(color='#a1c3d1'),
-                    align=['left'] * len(header)),
+                    align=['left'] * (len(header)+1)),
         cells=dict(values=aux2.T,
                    line=dict(color='#7D7F80'),
                    fill=dict(color='#EDFAFF'),
-                   align=['left'] * len(header),
+                   align=['left'] * (len(header)+1),
                    height = 40))
 
-    layout = dict(width=sum(col_w), height=700)
+    layout = dict(width=sum(col_w))#, height=700)
     data = [trace]
     fig = dict(data=data, layout=layout)
     #plotly.offline.plot(fig)
@@ -229,7 +234,7 @@ def table_number_dataopints(df,sel_estacion = 'VALLADOLID SUR'):
 
 
 
-def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)'):
+def plot_average_aggregate(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)',period="month"):
     """
     Return a time series figure with average values per month with error bars
     Inspired from here: https://plot.ly/python/continuous-error-bars/
@@ -240,23 +245,33 @@ def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m
 
     # Select column
     df_sel = df_sel[['Fecha',sel_comp]]
-
-    # Aggregate by week day
     df_sel = df_sel.sort_values(by='Fecha')
-    df_sel['weekday'] = pd.DatetimeIndex(df_sel.Fecha).month
 
-    # Aggregate by week day
+    # Aggregate by period
+    if period == "month":
+        df_sel['period'] = pd.DatetimeIndex(df_sel.Fecha).month
+        names = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre',
+             'Noviembre', 'Diciembre']
+
+    elif period == 'dayofweek':
+        df_sel['period'] = pd.DatetimeIndex(df_sel.Fecha).dayofweek
+        names = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo']
+
+    else:
+        return empty_plot('No hay datos disponibles de ' + str(sel_comp) + '\npara la estacion de ' + str(
+            sel_estacion) + '.\nPruebe con otra selección.')
+
+    # Aggregate or return empty plot
     try:
-        df_agg = df_sel.groupby('weekday').agg(['std', 'mean'])[sel_comp]
+        df_agg = df_sel.groupby('period').agg(['std', 'mean'])[sel_comp]
     except ValueError:
         return empty_plot('No hay datos disponibles de ' + str(sel_comp) + '\npara la estacion de ' + str(
             sel_estacion) + '.\nPruebe con otra selección.')
 
     # Create figure
-    meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
     upper_bound = go.Scatter(
         name='',
-        x=meses,#df_agg.index.values,
+        x=names,
         y=df_agg['mean'] + df_agg['std'],
         mode='lines',
         marker=dict(color="#444"),
@@ -266,7 +281,7 @@ def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m
 
     trace = go.Scatter(
         name='Media',
-        x=meses,#df_agg.index.values,
+        x=names,
         y=df_agg['mean'],
         mode='lines',
         line=dict(color='rgb(31, 119, 180)'),
@@ -275,7 +290,7 @@ def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m
 
     lower_bound = go.Scatter(
         name='',
-        x=meses,#,df_agg.index.values,
+        x=names,
         y=df_agg['mean'] - df_agg['std'],
         marker=dict(color="#444"),
         line=dict(width=0),
@@ -294,6 +309,9 @@ def plot_average_monthly(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m
     #plotly.offline.plot(fig)
 
     return fig
+
+
+
 
 
 

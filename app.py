@@ -6,8 +6,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
-from explore import prepare_data, create_map_plotly, empty_plot, plot_time_series, plot_average_monthly, \
-    table_number_dataopints
+from explore import prepare_data, create_map_plotly, empty_plot, plot_time_series, plot_average_aggregate, table_number_dataopints
 
 import json
 from textwrap import dedent as d
@@ -15,18 +14,6 @@ from textwrap import dedent as d
 
 # ===== INITIALIZE =========
 # ==========================
-
-def generate_table(dataframe, max_rows=10):
-    return html.Table(
-        # Header
-        [html.Tr([html.Th(col) for col in dataframe.columns])] +
-
-        # Body
-        [html.Tr([
-            html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
-        ]) for i in range(min(len(dataframe), max_rows))]
-    )
-
 
 # Load data
 df, est, provincias = prepare_data()
@@ -77,7 +64,8 @@ app.layout = html.Div([
                         {'label': 'SO2 (ug/m3)', 'value': 'SO2 (ug/m3)'},
                     ],
                     # value=['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'O3 (ug/m3)','PM10 (ug/m3)', 'PM25 (ug/m3)', 'SO2 (ug/m3)'],
-                    multi=False
+                    multi=False,
+                    style={'width': 200}
                 ),
 
                 html.Label('Seleccione una estación metereologica en el mapa.'),
@@ -90,23 +78,34 @@ app.layout = html.Div([
                 # Estacion seleccionada...
                 html.Div(id='selected-estacion'),
 
+                html.H4(children='Resumen de datos disponibles en la estacion'),
+
+                dcc.Graph(
+                    id='table-datapoints'
+                )
+
             ], className='six columns'),
 
         # Right column
         html.Div(
             [
-                html.H2(children='Numero de datos disponibles en la estacion'),
-
-                dcc.Graph(
-                    id='table-datapoints',
-                    style={'height': 400}
-                ),
 
                 dcc.Graph(
                     id='time-series1',
                     style={'height': 400}
                 ),
 
+                html.Label('Agregar datos por...'),
+                dcc.Dropdown(
+                    id='aggregate-component',
+                    options=[
+                        {'label': 'Mes', 'value': 'month'},
+                        {'label': 'Dia de la semana', 'value': 'dayofweek'},
+                        #{'label': 'Hour', 'value': 'hour'},
+                    ],
+                    multi=False, value='month',style={'width': 200}
+                ),
+                html.H1(' '),
                 dcc.Graph(
                     id='monthly-plot',
                     # figure = fig_time_series,
@@ -115,10 +114,20 @@ app.layout = html.Div([
 
                 # generate_table(df)
                 # Hidden div inside the app that stores the intermediate value
-                html.Div(id='df_sel', style={'display': 'none'})
+                html.Div(id='df_sel', style={'display': 'none'}),
+                html.H1(' '),
+                dcc.Markdown('''
+                
+Creado por [Javier Saez Gallego](http://jsaezgallego.com/en/). Para mas información contactar por email a <javiersaezgallego@gmail.com>.
+
+Codigo disponible en [Github](https://github.com/jsga/Air_quality_CyL_dashboard).
+
+Los datos han sido de la página web de [Datos Abiertos de Castilla y Leon](https://datosabiertos.jcyl.es/web/jcyl/set/es/medio-ambiente/calidad-aire-historico-horario/1284808467480).
+''')
 
             ], className='six columns')
     ], className='row')
+
 
 ])
 
@@ -175,7 +184,7 @@ def update_selected_estacion(clickData):
      dash.dependencies.Input('drop-component', 'value')])
 def update_figure_ts1(clickData, value):
     # If None clicked
-    if clickData is None:
+    if clickData is None or value is None:
         return empty_plot('Seleccione una estación en el mapa y un componente')
 
     # Get the estacion from clickData
@@ -192,34 +201,36 @@ def update_figure_ts1(clickData, value):
 @app.callback(
     dash.dependencies.Output('monthly-plot', 'figure'),
     [dash.dependencies.Input('cyl-map', 'clickData'),
-     dash.dependencies.Input('drop-component', 'value')])
-def update_figure_mp(clickData, value):
+     dash.dependencies.Input('drop-component', 'value'),
+     dash.dependencies.Input('aggregate-component', 'value')])
+def update_figure_mp(clickData, value,period):
     # If None clicked
-    if clickData is None:
+    if clickData is None or value is None:
         return empty_plot('Seleccione una estación en el mapa y un componente')
 
     # Get the estacion from clickData
     sel_estacion = clickData['points'][0]['text']
 
     # Produce figure
-    fig = plot_average_monthly(df, sel_estacion=str(sel_estacion), sel_comp=str(value))
+    fig = plot_average_aggregate(df, sel_estacion=str(sel_estacion), sel_comp=str(value),period=period)
 
     # END
     return fig
 
 
+
 # Show number of datapoints when hover
 @app.callback(Output('table-datapoints', 'figure'),
-              [Input('cyl-map', 'hoverData')])
-def update_table(hoverData):
-    print(hoverData)
-    if hoverData is None:
-        return empty_plot('Seleccione una estación en el mapa y un componente')
-
-    # Get the estacion from clickData
-    sel_estacion = hoverData['points'][0]['text']
-    print('estacion selected by hover: ' + str(sel_estacion))
-
+              [Input('cyl-map', 'clickData')])
+def update_table(clickData):
+    print(clickData)
+    if clickData is None:
+        sel_estacion = None
+    else:
+        # Get the estacion from clickData
+        sel_estacion = clickData['points'][0]['text']
+        print('estacion selected by hover: ' + str(sel_estacion))
+    # Create table
     tab = table_number_dataopints(df, sel_estacion)
 
     return tab
