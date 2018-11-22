@@ -1,15 +1,14 @@
 import pandas as pd
 import numpy as np
+from flask import Flask
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 
-from explore import prepare_data, create_map_plotly, empty_plot, plot_time_series, plot_average_aggregate, table_number_dataopints
+from figures import prepare_data, create_map_plotly, empty_plot, plot_time_series, plot_average_aggregate, table_number_datapoints
 
-import json
-from textwrap import dedent as d
 
 
 # ===== INITIALIZE =========
@@ -22,8 +21,11 @@ df, est, provincias = prepare_data()
 fig_map = create_map_plotly(est, provincias)
 
 # Launch app
+server = Flask(__name__)
 external_stylesheets = ['https://codepen.io/plotly/pen/EQZeaW.css']  # ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app = dash.Dash(name='calidad_aire_cyl',
+                server=server,
+                external_stylesheets=external_stylesheets)
 
 # ===== LAYOUT ===========
 # ========================
@@ -231,7 +233,7 @@ def update_table(clickData):
         sel_estacion = clickData['points'][0]['text']
         print('estacion selected by hover: ' + str(sel_estacion))
     # Create table
-    tab = table_number_dataopints(df, sel_estacion)
+    tab = table_number_datapoints(df, sel_estacion)
 
     return tab
 

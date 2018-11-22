@@ -9,7 +9,7 @@ import plotly.graph_objs as go
 
 
 def prepare_data(file_path = 'data/Calidad_del_aire_-_datos_hist_ricos_diarios.csv',
-                 provincias_path = 'data/provincias.json'):
+                 provincias_path = 'data/provincias_cyl.geojson'):
 
     # Download data from portal
     # TODO
@@ -189,7 +189,7 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
     return fig
 
 
-def table_number_dataopints(df,sel_estacion = 'VALLADOLID SUR'):
+def table_number_datapoints(df,sel_estacion = 'VALLADOLID SUR'):
     """
     Creates a plotly table with summary information from the selected estacion
     If sel_estacion is None, then an empty table is generated
@@ -309,50 +309,6 @@ def plot_average_aggregate(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug
     #plotly.offline.plot(fig)
 
     return fig
-
-
-
-
-
-
-
-
-def show_table_avg(est,sel_estacion = 'VALLADOLID SUR'):
-    """
-    Returns a plotly table with info from the selected estacion
-    """
-
-    # Select estacion
-    est_sel = est[est.index == sel_estacion]
-
-    # Re-arrange the table
-    est_sel.iloc[0,]
-    pd.melt( est_sel[0,],id_vars='',value_vars=['count','mean','std','min','max'])
-
-    header = ['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'PM10 (ug/m3)', 'PM25 (ug/m3)']
-
-    pd.melt(est_sel.iloc[0,],id_vars = 'CO (mg/m3)', value_vars=header)
-
-    dd = [est_sel['CO (mg/m3)'],
-        est_sel['NO (ug/m3)'],
-        est_sel['NO2 (ug/m3)'],
-        #est_sel['O3 (ug/m3)']
-        est_sel['PM10 (ug/m3)'],
-        est_sel['PM25 (ug/m3)']]#,
-        #est_sel['SO2 (ug/m3)']
-
-
-    # Create table
-    trace = go.Table(
-        header=dict(values=est_sel.iloc[0,].T.index,
-                    fill=dict(color='#C2D4FF'),
-                    align=['left'] * 5),
-        cells=dict(values = est_sel.iloc[0,].T,
-                   fill=dict(color='#F5F8FF'),
-                   align=['left'] * 5))
-
-    data = [trace]
-    plotly.offline.plot(data)
 
 
 
