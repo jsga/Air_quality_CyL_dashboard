@@ -180,7 +180,7 @@ def plot_time_series(df,sel_estacion = 'VALLADOLID SUR',sel_comp = 'NO (ug/m3)')
 
     layout = go.Layout(
         yaxis=dict(title=sel_comp),
-        title='Evolucion de ' + str(sel_comp) + ' a lo largo del tiempo',
+        title='Evolucion de ' + str(sel_comp) + ' a lo largo del tiempo' + ' en ' + str(sel_estacion),
         showlegend=False)
 
     fig = go.Figure(data=data, layout=layout)

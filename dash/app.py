@@ -20,6 +20,18 @@ df, est, provincias = prepare_data()
 # Initialize map
 fig_map = create_map_plotly(est, provincias)
 
+# Create some text
+
+md_text = '''
+
+Creado por [Javier Saez Gallego](http://jsaezgallego.com/en/). Para mas información contactar por email a <javiersaezgallego@gmail.com>.
+
+Codigo disponible en [Github](https://github.com/jsga/Air_quality_CyL_dashboard).
+
+Los datos han sido obtenidos de la página web de [Datos Abiertos de Castilla y Leon](https://datosabiertos.jcyl.es/web/jcyl/set/es/medio-ambiente/calidad-aire-historico-horario/1284808467480).
+'''
+
+
 # Launch app
 server = Flask(__name__)
 external_stylesheets = ['https://codepen.io/plotly/pen/EQZeaW.css']  # ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -53,7 +65,28 @@ app.layout = html.Div([
         html.Div(
             [
 
-                html.Label('Seleccione componente que desee analizar'),
+                html.H4('Seleccione una estación metereologica en el mapa.'),
+
+                # Estacion seleccionada...
+                html.Div(id='selected-estacion'),
+
+                dcc.Graph(
+                    id='cyl-map',
+                    figure=fig_map,
+                    style={'height': 700}
+                ),
+
+
+                # General info
+                html.H1(' '),
+                dcc.Markdown(md_text)
+
+            ], className='six columns'),
+
+        # Right column
+        html.Div(
+            [
+                html.H4('Seleccione componente que desee analizar'),
                 dcc.Dropdown(
                     id='drop-component',
                     options=[
@@ -65,32 +98,15 @@ app.layout = html.Div([
                         {'label': 'PM25 (ug/m3)', 'value': 'PM25 (ug/m3)'},
                         {'label': 'SO2 (ug/m3)', 'value': 'SO2 (ug/m3)'},
                     ],
-                    # value=['CO (mg/m3)', 'NO (ug/m3)', 'NO2 (ug/m3)', 'O3 (ug/m3)','PM10 (ug/m3)', 'PM25 (ug/m3)', 'SO2 (ug/m3)'],
                     multi=False,
                     style={'width': 200}
                 ),
 
-                html.Label('Seleccione una estación metereologica en el mapa.'),
+                html.H5(children='Resumen de datos disponibles en la estacion'),
 
-                dcc.Graph(
-                    id='cyl-map',
-                    figure=fig_map,
-                    style={'height': 700}
-                ),
-                # Estacion seleccionada...
-                html.Div(id='selected-estacion'),
+                dcc.Graph(id='table-datapoints'),
 
-                html.H4(children='Resumen de datos disponibles en la estacion'),
-
-                dcc.Graph(
-                    id='table-datapoints'
-                )
-
-            ], className='six columns'),
-
-        # Right column
-        html.Div(
-            [
+                html.H5(children='Graficos explorativos'),
 
                 dcc.Graph(
                     id='time-series1',
@@ -107,25 +123,12 @@ app.layout = html.Div([
                     ],
                     multi=False, value='month',style={'width': 200}
                 ),
-                html.H1(' '),
-                dcc.Graph(
-                    id='monthly-plot',
-                    # figure = fig_time_series,
-                    style={'height': 400}
-                ),
 
-                # generate_table(df)
+                html.H1(' '),
+                dcc.Graph(id='monthly-plot'),
+
                 # Hidden div inside the app that stores the intermediate value
                 html.Div(id='df_sel', style={'display': 'none'}),
-                html.H1(' '),
-                dcc.Markdown('''
-                
-Creado por [Javier Saez Gallego](http://jsaezgallego.com/en/). Para mas información contactar por email a <javiersaezgallego@gmail.com>.
-
-Codigo disponible en [Github](https://github.com/jsga/Air_quality_CyL_dashboard).
-
-Los datos han sido de la página web de [Datos Abiertos de Castilla y Leon](https://datosabiertos.jcyl.es/web/jcyl/set/es/medio-ambiente/calidad-aire-historico-horario/1284808467480).
-''')
 
             ], className='six columns')
     ], className='row')
@@ -186,8 +189,12 @@ def update_selected_estacion(clickData):
      dash.dependencies.Input('drop-component', 'value')])
 def update_figure_ts1(clickData, value):
     # If None clicked
-    if clickData is None or value is None:
+    if clickData is None and value is None:
         return empty_plot('Seleccione una estación en el mapa y un componente')
+    elif clickData is None and value is not None:
+        return empty_plot('Seleccione una estación en el mapa')
+    elif clickData is not  None and value is None:
+        return empty_plot('Seleccione un componente')
 
     # Get the estacion from clickData
     sel_estacion = clickData['points'][0]['text']
@@ -207,8 +214,12 @@ def update_figure_ts1(clickData, value):
      dash.dependencies.Input('aggregate-component', 'value')])
 def update_figure_mp(clickData, value,period):
     # If None clicked
-    if clickData is None or value is None:
+    if clickData is None and value is None:
         return empty_plot('Seleccione una estación en el mapa y un componente')
+    elif clickData is None and value is not None:
+        return empty_plot('Seleccione una estación en el mapa')
+    elif clickData is not None and value is None:
+        return empty_plot('Seleccione un componente')
 
     # Get the estacion from clickData
     sel_estacion = clickData['points'][0]['text']
